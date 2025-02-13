@@ -2,17 +2,17 @@
 pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
-import {Counter} from "../src/Counter.sol";
+import {GoalKeeper} from "../src/GoalKeeper.sol";
 
-contract CounterScript is Script {
-    Counter public counter;
+contract GoalKeeperScript is Script {
+    GoalKeeper public goalKeeper;
 
     function setUp() public {}
 
     function run() public {
         vm.startBroadcast();
 
-        counter = new Counter();
+        goalKeeper = new GoalKeeper();
 
         vm.stopBroadcast();
     }
