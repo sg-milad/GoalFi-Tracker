@@ -127,12 +127,16 @@ contract GoalKeeperTest is Test {
         vm.stopPrank();
     }
 
-    function testFail_CompleteTask_NotOwner() public {
-        vm.prank(user1);
+    function test_Revert_CompleteTask_NotOwner() public {
+        vm.startPrank(user1);
+        usdt.approve(address(goalkeeper), STAKE_AMOUNT);
+        goalkeeper.stakeTokens(STAKE_AMOUNT);
+
         uint256 deadline = block.timestamp + 1 days;
         goalkeeper.createTask("Complete unit tests", deadline);
-
+        vm.stopPrank();
         vm.prank(user2);
+        vm.expectRevert("Not task owner");
         goalkeeper.completeTask(1);
     }
 
