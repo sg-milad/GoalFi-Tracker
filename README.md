@@ -35,16 +35,6 @@ The **Token-Based Goal Tracker** is a decentralized application built using Ethe
 5. **Consistency Bonuses** (Optional):
    - Completing all tasks within a week or month can unlock a bonus reward (e.g., 10% more USDT).
 
-## **How to Use the Contract**
-
-### **1. Staking USDT Tokens**
-
-First, you’ll need to stake your USDT tokens into the contract:
-
-```solidity
-stakeUSDT(uint256 _amount);
-```
-
 ### Gas Snapshots
 
 ```shell
