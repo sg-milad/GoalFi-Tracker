@@ -11,7 +11,6 @@ The **Token-Based Goal Tracker** is a decentralized application built using Ethe
 - **Penalty for Failure**: If you fail to complete a task, you lose tokens (e.g., -10 USDT).
 - **Reward for Success**: If you successfully complete your task, you keep your staked USDT tokens.
 - **Goal Tracking**: Set multiple goals with different reward/penalty conditions.
-- **Bonus for Consistency**: Earn extra tokens for completing all tasks within a specific time period (e.g., weekly, monthly).
 - **Decentralized**: Fully trustless and transparent using blockchain technology.
 
 ## **How it Works**
