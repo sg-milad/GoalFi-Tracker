@@ -15,18 +15,9 @@ contract GoalKeeperTest is Test {
     uint256 public constant INITIAL_BALANCE = 1000e6; // 1000 USDT
     uint256 public constant STAKE_AMOUNT = 100e6; // 100 USDT
 
-    event TaskCreated(
-        uint256 indexed taskId,
-        address indexed user,
-        string description,
-        uint256 deadline
-    );
+    event TaskCreated(uint256 indexed taskId, address indexed user, string description, uint256 deadline);
     event TaskCompleted(uint256 indexed taskId, address indexed user);
-    event PenaltyApplied(
-        uint256 indexed taskId,
-        address indexed user,
-        uint256 amount
-    );
+    event PenaltyApplied(uint256 indexed taskId, address indexed user, uint256 amount);
     event TokensStaked(address indexed user, uint256 amount);
     event TokensWithdrawn(address indexed user, uint256 amount);
 
@@ -66,9 +57,7 @@ contract GoalKeeperTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                GoalKeeper.GoalKeeper__InsufficientBalance.selector,
-                INITIAL_BALANCE,
-                INITIAL_BALANCE * 2
+                GoalKeeper.GoalKeeper__InsufficientBalance.selector, INITIAL_BALANCE, INITIAL_BALANCE * 2
             )
         );
         goalkeeper.stakeTokens(INITIAL_BALANCE * 2);
@@ -81,9 +70,7 @@ contract GoalKeeperTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                GoalKeeper.GoalKeeper__InsufficientAllowance.selector,
-                STAKE_AMOUNT - 1,
-                STAKE_AMOUNT
+                GoalKeeper.GoalKeeper__InsufficientAllowance.selector, STAKE_AMOUNT - 1, STAKE_AMOUNT
             )
         );
         goalkeeper.stakeTokens(STAKE_AMOUNT);
@@ -207,14 +194,8 @@ contract GoalKeeperTest is Test {
         emit TokensWithdrawn(user1, withdrawAmount);
         goalkeeper.withdrawTokens(withdrawAmount);
 
-        assertEq(
-            goalkeeper.getStakedBalance(user1),
-            STAKE_AMOUNT - withdrawAmount
-        );
-        assertEq(
-            usdt.balanceOf(user1),
-            INITIAL_BALANCE - STAKE_AMOUNT + withdrawAmount
-        );
+        assertEq(goalkeeper.getStakedBalance(user1), STAKE_AMOUNT - withdrawAmount);
+        assertEq(usdt.balanceOf(user1), INITIAL_BALANCE - STAKE_AMOUNT + withdrawAmount);
         vm.stopPrank();
     }
 
@@ -224,11 +205,7 @@ contract GoalKeeperTest is Test {
         goalkeeper.stakeTokens(STAKE_AMOUNT);
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                GoalKeeper.GoalKeeper__InsufficientBalance.selector,
-                STAKE_AMOUNT,
-                STAKE_AMOUNT * 2
-            )
+            abi.encodeWithSelector(GoalKeeper.GoalKeeper__InsufficientBalance.selector, STAKE_AMOUNT, STAKE_AMOUNT * 2)
         );
         goalkeeper.withdrawTokens(STAKE_AMOUNT * 2);
         vm.stopPrank();
