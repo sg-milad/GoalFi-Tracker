@@ -1,8 +1,8 @@
-# **Token-Based Goal Tracker with Rewards and Penalties (USDT Staking)**
+# ** GoalFi-Tracker with Rewards and Penalties (USDT Staking)**
 
 ## **Overview**
 
-The **Token-Based Goal Tracker** is a decentralized application built using Ethereum smart contracts. This system incentivizes positive behavior (completing tasks, goals, or homework) by allowing users to stake **USDT (Tether)** tokens. If tasks are completed successfully, users keep their staked USDT tokens; however, if tasks are not completed, they lose a set amount of tokens as a penalty. This smart contract system is designed to help you stay motivated and focused by tracking your progress in real-time.
+The **GoalFi-Tracker** is a decentralized application built using Ethereum smart contracts. This system incentivizes positive behavior (completing tasks, goals, or homework) by allowing users to stake **USDT (Tether)** tokens. If tasks are completed successfully, users keep their staked USDT tokens; however, if tasks are not completed, they lose a set amount of tokens as a penalty. This smart contract system is designed to help you stay motivated and focused by tracking your progress in real-time.
 
 ## **Key Features**
 
