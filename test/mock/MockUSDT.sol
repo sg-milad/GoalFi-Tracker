@@ -3,43 +3,17 @@ pragma solidity ^0.8.13;
 
 import {Test, Vm} from "forge-std/Test.sol";
 import {GoalKeeper} from "../../src/GoalKeeper.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract MockUSDT is IERC20 {
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-    uint256 public totalSupply;
+contract MockUSDT is ERC20 {
+    uint256 constant INITIAL_SUPPLY = 1000000000000000000000000;
+    uint8 constant DECIMALS = 18;
 
-    function mint(address to, uint256 amount) external {
-        balanceOf[to] += amount;
-        totalSupply += amount;
+    constructor() ERC20("Tether USDT", "USDT") {
+        _mint(msg.sender, INITIAL_SUPPLY);
     }
 
-    function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
-        return true;
+    function mint(address user, uint256 value) public {
+        _mint(user, value);
     }
-
-    function transfer(address to, uint256 amount) external returns (bool) {
-        balanceOf[msg.sender] -= amount;
-        balanceOf[to] += amount;
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
-        uint256 currentAllowance = allowance[from][msg.sender];
-        require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
-
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-        allowance[from][msg.sender] -= amount;
-        return true;
-    }
-
-    // Other ERC20 functions not used in tests
-    function name() external pure returns (string memory) {}
-
-    function symbol() external pure returns (string memory) {}
-
-    function decimals() external pure returns (uint8) {}
 }
