@@ -1,4 +1,4 @@
-# ** GoalFi-Tracker with Rewards and Penalties (USDT Staking)**
+# **GoalFi-Tracker with Rewards and Penalties (USDT Staking)**
 
 ## **Overview**
 
