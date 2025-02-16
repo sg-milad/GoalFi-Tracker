@@ -35,3 +35,6 @@ The **GoalFi-Tracker** is a decentralized application built using Ethereum smart
 5. **Consistency Bonuses** (Optional):
    - Completing all tasks within a week or month can unlock a bonus reward (e.g., 10% more USDT).
 
+## TODO
+- add pnaltyValue variable and transfer money to users that complete tasks successfully
+
