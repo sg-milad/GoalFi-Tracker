@@ -53,7 +53,7 @@ contract GoalKeeperInteractionTest is Test {
         goalkeeper.completeTask(3);
 
         // Check final balance after penalties
-        uint256 expectedBalance = STAKE_AMOUNT - ((STAKE_AMOUNT * 30) / 100); // 30% penalty
+        uint256 expectedBalance = STAKE_AMOUNT - ((STAKE_AMOUNT * 10) / 100); // 10% penalty
         assertEq(goalkeeper.getStakedBalance(user1), expectedBalance);
         vm.stopPrank();
     }
@@ -115,7 +115,7 @@ contract GoalKeeperInteractionTest is Test {
         goalkeeper.evaluateTask(2);
 
         // Final balance check
-        uint256 expectedBalance = STAKE_AMOUNT + (STAKE_AMOUNT / 2) - (((STAKE_AMOUNT + (STAKE_AMOUNT / 2)) * 20) / 100);
+        uint256 expectedBalance = STAKE_AMOUNT + (STAKE_AMOUNT / 2) - (((STAKE_AMOUNT + (STAKE_AMOUNT / 2)) * 10) / 100);
         assertEq(goalkeeper.getStakedBalance(user1), expectedBalance);
         vm.stopPrank();
     }

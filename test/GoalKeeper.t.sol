@@ -9,22 +9,26 @@ contract GoalKeeperTest is Test {
     GoalKeeper public goalkeeper;
     MockUSDT public usdt;
 
+    address public owner;
     address public user1;
     address public user2;
 
     uint256 public constant INITIAL_BALANCE = 1000e6; // 1000 USDT
+    uint256 public constant INITIAL_USDT_BALANCE = 1e24; // 1000 USDT
     uint256 public constant STAKE_AMOUNT = 100e6; // 100 USDT
+    uint256 public constant PENALTY_PERCENTAGE = 10; // 10%
 
     event TaskCreated(uint256 indexed taskId, address indexed user, string description, uint256 deadline);
     event TaskCompleted(uint256 indexed taskId, address indexed user);
-    event PenaltyApplied(uint256 indexed taskId, address indexed user, uint256 amount);
     event TokensStaked(address indexed user, uint256 amount);
     event TokensWithdrawn(address indexed user, uint256 amount);
+    event PenaltyWithdrawn(address indexed owner, uint256 amount);
+    event PenaltyApplied(uint256 indexed taskId, address indexed user, uint256 amount);
 
     function setUp() public {
         usdt = new MockUSDT();
         goalkeeper = new GoalKeeper(address(usdt));
-
+        owner = address(this);
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
 
@@ -233,5 +237,181 @@ contract GoalKeeperTest is Test {
         assertEq(task.deadline, 0);
         assertEq(task.isCompleted, false);
         assertEq(task.isPenalized, false);
+    }
+
+    function test_SingleTaskPenalty() public {
+        // User stakes tokens
+        vm.startPrank(user1);
+        usdt.approve(address(goalkeeper), STAKE_AMOUNT);
+        goalkeeper.stakeTokens(STAKE_AMOUNT);
+
+        // Create task
+        uint256 deadline = block.timestamp + 1 days;
+        goalkeeper.createTask("Test task", deadline);
+        vm.stopPrank();
+
+        // Advance time past deadline
+        vm.warp(deadline + 1);
+
+        // Evaluate the task (apply penalty)
+        vm.expectEmit(true, true, false, true);
+        emit PenaltyApplied(1, user1, (STAKE_AMOUNT * PENALTY_PERCENTAGE) / 100);
+        goalkeeper.evaluateTask(1);
+
+        // Check penalty balance (should be 10% of staked amount)
+        uint256 expectedPenalty = (STAKE_AMOUNT * PENALTY_PERCENTAGE) / 100;
+        assertEq(goalkeeper.getPenaltyBalance(), expectedPenalty);
+
+        // Check user's remaining balance (should be 90% of staked amount)
+        assertEq(goalkeeper.getStakedBalance(user1), STAKE_AMOUNT - expectedPenalty);
+    }
+
+    function test_MultipleTaskPenalties() public {
+        // User stakes tokens
+        vm.startPrank(user1);
+        usdt.approve(address(goalkeeper), STAKE_AMOUNT);
+        goalkeeper.stakeTokens(STAKE_AMOUNT);
+
+        // Create 3 tasks
+        uint256 deadline1 = block.timestamp + 1 days;
+        uint256 deadline2 = block.timestamp + 2 days;
+        uint256 deadline3 = block.timestamp + 3 days;
+
+        goalkeeper.createTask("Task 1", deadline1);
+        goalkeeper.createTask("Task 2", deadline2);
+        goalkeeper.createTask("Task 3", deadline3);
+        vm.stopPrank();
+
+        // Advance time past first deadline
+        vm.warp(deadline1 + 1);
+
+        // Evaluate first task - 10% penalty of original stake
+        goalkeeper.evaluateTask(1);
+        uint256 firstPenalty = (STAKE_AMOUNT * PENALTY_PERCENTAGE) / 100;
+        assertEq(goalkeeper.getPenaltyBalance(), firstPenalty);
+
+        // Remaining stake after first penalty
+        uint256 remainingStake = STAKE_AMOUNT - firstPenalty;
+
+        // Advance time past second deadline
+        vm.warp(deadline2 + 1);
+
+        // Evaluate second task - 10% penalty of remaining stake
+        goalkeeper.evaluateTask(2);
+        uint256 secondPenalty = (remainingStake * PENALTY_PERCENTAGE) / 100;
+        assertEq(goalkeeper.getPenaltyBalance(), firstPenalty + secondPenalty);
+
+        // Remaining stake after second penalty
+        remainingStake = remainingStake - secondPenalty;
+
+        // Advance time past third deadline
+        vm.warp(deadline3 + 1);
+
+        // Evaluate third task - 10% penalty of remaining stake
+        goalkeeper.evaluateTask(3);
+        uint256 thirdPenalty = (remainingStake * PENALTY_PERCENTAGE) / 100;
+        assertEq(goalkeeper.getPenaltyBalance(), firstPenalty + secondPenalty + thirdPenalty);
+
+        // Final user balance should be approximately 72.9% of original stake
+        // (90% of 90% of 90% = 72.9%)
+        uint256 expectedFinalBalance = STAKE_AMOUNT - (firstPenalty + secondPenalty + thirdPenalty);
+        assertEq(goalkeeper.getStakedBalance(user1), expectedFinalBalance);
+    }
+
+    function test_PenaltyWithdrawal() public {
+        // User stakes and fails a task
+        vm.startPrank(user1);
+        usdt.approve(address(goalkeeper), STAKE_AMOUNT);
+        goalkeeper.stakeTokens(STAKE_AMOUNT);
+        uint256 deadline = block.timestamp + 1 days;
+        goalkeeper.createTask("Test task", deadline);
+        vm.stopPrank();
+
+        // Advance time and apply penalty
+        vm.warp(deadline + 1);
+        goalkeeper.evaluateTask(1);
+
+        uint256 penaltyAmount = goalkeeper.getPenaltyBalance();
+
+        // Owner withdraws penalty
+        vm.startPrank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit PenaltyWithdrawn(owner, penaltyAmount);
+        goalkeeper.withdrawPenalties(penaltyAmount);
+
+        // Verify penalty balance is zero
+        assertEq(goalkeeper.getPenaltyBalance(), 0);
+
+        // Verify owner received the tokens
+
+        assertEq(usdt.balanceOf(owner) - INITIAL_USDT_BALANCE, penaltyAmount);
+        vm.stopPrank();
+    }
+
+    function test_EvaluateAllTasks() public {
+        // User stakes tokens
+        vm.startPrank(user1);
+        usdt.approve(address(goalkeeper), STAKE_AMOUNT);
+        goalkeeper.stakeTokens(STAKE_AMOUNT);
+
+        // Create 2 tasks
+        uint256 deadline1 = block.timestamp + 1 days;
+        uint256 deadline2 = block.timestamp + 2 days;
+
+        goalkeeper.createTask("Task 1", deadline1);
+        goalkeeper.createTask("Task 2", deadline2);
+        vm.stopPrank();
+
+        // Advance time past both deadlines
+        vm.warp(deadline2 + 1);
+
+        // Withdraw tokens to trigger evaluateAllTasks
+        vm.prank(user1);
+        goalkeeper.withdrawTokens(0);
+
+        // Calculate expected penalties
+        uint256 firstPenalty = (STAKE_AMOUNT * PENALTY_PERCENTAGE) / 100;
+        uint256 remainingAfterFirst = STAKE_AMOUNT - firstPenalty;
+        uint256 secondPenalty = (remainingAfterFirst * PENALTY_PERCENTAGE) / 100;
+
+        // Verify penalty balance
+        assertEq(goalkeeper.getPenaltyBalance(), firstPenalty + secondPenalty);
+
+        // Verify user's remaining balance
+        assertEq(goalkeeper.getStakedBalance(user1), STAKE_AMOUNT - (firstPenalty + secondPenalty));
+    }
+
+    function test_CompleteAndFailMixedTasks() public {
+        // User stakes tokens
+        vm.startPrank(user1);
+        usdt.approve(address(goalkeeper), STAKE_AMOUNT);
+        goalkeeper.stakeTokens(STAKE_AMOUNT);
+
+        // Create 3 tasks
+        uint256 deadline1 = block.timestamp + 1 days;
+        uint256 deadline2 = block.timestamp + 2 days;
+        uint256 deadline3 = block.timestamp + 3 days;
+
+        goalkeeper.createTask("Task 1", deadline1);
+        goalkeeper.createTask("Task 2", deadline2);
+        goalkeeper.createTask("Task 3", deadline3);
+
+        // Complete task 1 and 3
+        goalkeeper.completeTask(1);
+        goalkeeper.completeTask(3);
+        vm.stopPrank();
+
+        // Advance time past all deadlines
+        vm.warp(deadline3 + 1);
+
+        // Evaluate task 2 (should fail)
+        goalkeeper.evaluateTask(2);
+
+        // Only task 2 should have penalty (10% of original stake)
+        uint256 expectedPenalty = (STAKE_AMOUNT * PENALTY_PERCENTAGE) / 100;
+        assertEq(goalkeeper.getPenaltyBalance(), expectedPenalty);
+
+        // User's balance should be 90% of original
+        assertEq(goalkeeper.getStakedBalance(user1), STAKE_AMOUNT - expectedPenalty);
     }
 }
