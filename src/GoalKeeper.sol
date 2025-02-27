@@ -7,6 +7,8 @@ contract GoalKeeper {
     error GoalKeeper__InsufficientAllowance(uint256 available, uint256 required);
     error GoalKeeper__InsufficientBalance(uint256 available, uint256 required);
     error GoalKeeper__NoStakedTokens(address user);
+    error GoalKeeper__OnlyOwner();
+    error GoalKeeper__InsufficientPenaltyBalance(uint256 available, uint256 required);
 
     struct Task {
         uint256 id;
@@ -22,16 +24,33 @@ contract GoalKeeper {
     event PenaltyApplied(uint256 indexed taskId, address indexed user, uint256 amount);
     event TokensStaked(address indexed user, uint256 amount);
     event TokensWithdrawn(address indexed user, uint256 amount);
+    event PenaltyWithdrawn(address indexed owner, uint256 amount);
 
     uint256 private taskIdCounter = 1;
     mapping(uint256 => Task) private tasks;
     mapping(address => uint256[]) private userTaskIds;
     mapping(address => uint256) private s_stakedTokens;
 
+    // Contract owner and accumulated penalties
+    address private immutable i_owner;
+    uint256 private s_penaltyBalance;
+
+    // Penalty percentage (10% or 10/100)
+    uint256 private constant PENALTY_PERCENTAGE = 10;
+
     IERC20 private usdt;
+
+    modifier onlyOwner() {
+        if (msg.sender != i_owner) {
+            revert GoalKeeper__OnlyOwner();
+        }
+        _;
+    }
 
     constructor(address _usdt) {
         usdt = IERC20(_usdt);
+        i_owner = msg.sender;
+        s_penaltyBalance = 0;
     }
 
     function stakeTokens(uint256 _amount) public {
@@ -82,17 +101,9 @@ contract GoalKeeper {
     }
 
     function calculatePenalty(address _user) private view returns (uint256) {
-        uint256 totalTasks = userTaskIds[_user].length;
+        // Flat 10% penalty of user's current staked tokens
         uint256 stakedAmount = s_stakedTokens[_user];
-
-        // Penalty percentage increases with the number of tasks
-        // Example: 10% for 1 task, 20% for 2 tasks, ..., 100% for 10 tasks
-        uint256 penaltyPercentage = totalTasks * 10; // 10% per task
-        if (penaltyPercentage > 100) {
-            penaltyPercentage = 100; // Cap at 100%
-        }
-
-        return (stakedAmount * penaltyPercentage) / 100;
+        return (stakedAmount * PENALTY_PERCENTAGE) / 100;
     }
 
     function evaluateTask(uint256 _taskId) public {
@@ -112,6 +123,7 @@ contract GoalKeeper {
         }
 
         task.isPenalized = true;
+        s_penaltyBalance += penalty; // Add penalty to penalty balance
         emit PenaltyApplied(_taskId, owner, penalty);
     }
 
@@ -125,6 +137,16 @@ contract GoalKeeper {
         s_stakedTokens[msg.sender] -= _amount;
         usdt.transfer(msg.sender, _amount);
         emit TokensWithdrawn(msg.sender, _amount);
+    }
+
+    function withdrawPenalties(uint256 _amount) public onlyOwner {
+        if (s_penaltyBalance < _amount) {
+            revert GoalKeeper__InsufficientPenaltyBalance(s_penaltyBalance, _amount);
+        }
+
+        s_penaltyBalance -= _amount;
+        usdt.transfer(i_owner, _amount);
+        emit PenaltyWithdrawn(i_owner, _amount);
     }
 
     function getUserBalance() public view returns (uint256) {
@@ -143,21 +165,38 @@ contract GoalKeeper {
         return tasks[_taskId];
     }
 
+    function getPenaltyBalance() public view returns (uint256) {
+        return s_penaltyBalance;
+    }
+
+    function getContractOwner() public view returns (address) {
+        return i_owner;
+    }
+
+    function getPenaltyPercentage() public pure returns (uint256) {
+        return PENALTY_PERCENTAGE;
+    }
+
     function evaluateAllTasks(address _user) private {
         uint256[] memory taskIds = userTaskIds[_user];
-        uint256 penaltyPerTask = s_stakedTokens[_user] / 10; // 10% of original stake
 
         for (uint256 i = 0; i < taskIds.length; i++) {
             Task storage task = tasks[taskIds[i]];
             if (block.timestamp > task.deadline && !task.isCompleted && !task.isPenalized) {
-                if (s_stakedTokens[_user] >= penaltyPerTask) {
-                    s_stakedTokens[_user] -= penaltyPerTask;
+                // Calculate 10% penalty for each failed task
+                uint256 penaltyAmount = (s_stakedTokens[_user] * PENALTY_PERCENTAGE) / 100;
+
+                if (s_stakedTokens[_user] >= penaltyAmount) {
+                    s_stakedTokens[_user] -= penaltyAmount;
+                    s_penaltyBalance += penaltyAmount; // Add penalty to penalty balance
                 } else {
-                    penaltyPerTask = s_stakedTokens[_user];
+                    penaltyAmount = s_stakedTokens[_user];
                     s_stakedTokens[_user] = 0;
+                    s_penaltyBalance += penaltyAmount; // Add penalty to penalty balance
                 }
+
                 task.isPenalized = true;
-                emit PenaltyApplied(task.id, _user, penaltyPerTask);
+                emit PenaltyApplied(task.id, _user, penaltyAmount);
             }
         }
     }
