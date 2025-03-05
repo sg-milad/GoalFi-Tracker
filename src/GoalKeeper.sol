@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -8,6 +8,7 @@ contract GoalKeeper {
     error GoalKeeper__InsufficientBalance(uint256 available, uint256 required);
     error GoalKeeper__NoStakedTokens(address user);
     error GoalKeeper__OnlyOwner();
+    error GoalKeeper__TransferFailed();
     error GoalKeeper__InsufficientPenaltyBalance(uint256 available, uint256 required);
 
     struct Task {
@@ -38,7 +39,7 @@ contract GoalKeeper {
     // Penalty percentage (10% or 10/100)
     uint256 private constant PENALTY_PERCENTAGE = 10;
 
-    IERC20 private usdt;
+    IERC20 private immutable usdt;
 
     modifier onlyOwner() {
         if (msg.sender != i_owner) {
@@ -64,7 +65,10 @@ contract GoalKeeper {
             revert GoalKeeper__InsufficientAllowance(allowance, _amount);
         }
 
-        usdt.transferFrom(msg.sender, address(this), _amount);
+        bool succuss = usdt.transferFrom(msg.sender, address(this), _amount);
+        if (!succuss) {
+            revert GoalKeeper__TransferFailed();
+        }
         s_stakedTokens[msg.sender] += _amount;
 
         emit TokensStaked(msg.sender, _amount);
@@ -135,7 +139,10 @@ contract GoalKeeper {
         }
 
         s_stakedTokens[msg.sender] -= _amount;
-        usdt.transfer(msg.sender, _amount);
+        bool succuss = usdt.transfer(msg.sender, _amount);
+        if (!succuss) {
+            revert GoalKeeper__TransferFailed();
+        }
         emit TokensWithdrawn(msg.sender, _amount);
     }
 
@@ -145,7 +152,10 @@ contract GoalKeeper {
         }
 
         s_penaltyBalance -= _amount;
-        usdt.transfer(i_owner, _amount);
+        bool succuss = usdt.transfer(i_owner, _amount);
+        if (!succuss) {
+            revert GoalKeeper__TransferFailed();
+        }
         emit PenaltyWithdrawn(i_owner, _amount);
     }
 
