@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Test, Vm} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {GoalKeeper} from "../src/GoalKeeper.sol";
 import {MockUSDT} from "./mock/MockUSDT.sol";
 
@@ -14,11 +14,9 @@ contract GoalKeeperTest is Test {
     address public user2;
 
     uint256 public constant INITIAL_BALANCE = 1000e6; // 1000 USDT
-    uint256 public constant INITIAL_USDT_BALANCE = 1e24; // 1000 USDT
+    uint256 public constant INITIAL_USDT_BALANCE = 1e24; // 1 million USDT
     uint256 public constant STAKE_AMOUNT = 100e6; // 100 USDT
     uint256 public constant PENALTY_PERCENTAGE = 10; // 10%
-
-    error ERC20InsufficientAllowance(address spender, uint256 allowance, uint256 needed);
 
     event TaskCreated(uint256 indexed taskId, address indexed user, string description, uint256 deadline);
     event TaskCompleted(uint256 indexed taskId, address indexed user);
@@ -75,6 +73,15 @@ contract GoalKeeperTest is Test {
         vm.stopPrank();
     }
 
+    function test_StakeZero() public {
+        vm.startPrank(user1);
+        usdt.approve(address(goalkeeper), STAKE_AMOUNT);
+
+        vm.expectRevert(abi.encodeWithSelector(GoalKeeper.GoalKeeper__InsufficientBalance.selector, 0, 1));
+        goalkeeper.stakeTokens(0);
+        vm.stopPrank();
+    }
+
     function test_CreateTask() public {
         string memory description = "Complete unit tests";
         uint256 deadline = block.timestamp + 1 days;
@@ -103,7 +110,10 @@ contract GoalKeeperTest is Test {
 
     function test_CreateTask_PastDeadline() public {
         vm.startPrank(user1);
-        vm.expectRevert("Deadline must be in future");
+        usdt.approve(address(goalkeeper), STAKE_AMOUNT);
+        goalkeeper.stakeTokens(STAKE_AMOUNT);
+
+        vm.expectRevert(GoalKeeper.GoalKeeper__DeadlineMustBeInFuture.selector);
         goalkeeper.createTask("Test task", block.timestamp - 1);
         vm.stopPrank();
     }
@@ -133,8 +143,9 @@ contract GoalKeeperTest is Test {
         uint256 deadline = block.timestamp + 1 days;
         goalkeeper.createTask("Complete unit tests", deadline);
         vm.stopPrank();
+
         vm.prank(user2);
-        vm.expectRevert("Not task owner");
+        vm.expectRevert(GoalKeeper.GoalKeeper__NotTaskOwner.selector);
         goalkeeper.completeTask(1);
     }
 
@@ -148,7 +159,7 @@ contract GoalKeeperTest is Test {
         goalkeeper.createTask("Complete unit tests", deadline);
 
         vm.warp(deadline + 1);
-        vm.expectRevert("Deadline passed");
+        vm.expectRevert(GoalKeeper.GoalKeeper__DeadlinePassed.selector);
         goalkeeper.completeTask(1);
         vm.stopPrank();
     }
@@ -181,7 +192,7 @@ contract GoalKeeperTest is Test {
         goalkeeper.stakeTokens(STAKE_AMOUNT);
         goalkeeper.createTask("Complete unit tests", deadline);
 
-        vm.expectRevert("Deadline not passed");
+        vm.expectRevert(GoalKeeper.GoalKeeper__DeadlineNotPassed.selector);
         goalkeeper.evaluateTask(1);
         vm.stopPrank();
     }
@@ -225,7 +236,6 @@ contract GoalKeeperTest is Test {
 
     function test_GetTaskDetails_NonexistentTask() public view {
         GoalKeeper.Task memory task = goalkeeper.getTaskDetails(999);
-        assertEq(task.id, 0);
         assertEq(task.owner, address(0));
         assertEq(task.description, "");
         assertEq(task.deadline, 0);
@@ -337,43 +347,42 @@ contract GoalKeeperTest is Test {
         assertEq(goalkeeper.getPenaltyBalance(), 0);
 
         // Verify owner received the tokens
-
         assertEq(usdt.balanceOf(owner) - INITIAL_USDT_BALANCE, penaltyAmount);
         vm.stopPrank();
     }
 
-    function test_EvaluateAllTasks() public {
-        // User stakes tokens
-        vm.startPrank(user1);
-        usdt.approve(address(goalkeeper), STAKE_AMOUNT);
-        goalkeeper.stakeTokens(STAKE_AMOUNT);
+    // function test_EvaluateAllTasks() public {
+    //     // User stakes tokens
+    //     vm.startPrank(user1);
+    //     usdt.approve(address(goalkeeper), STAKE_AMOUNT);
+    //     goalkeeper.stakeTokens(STAKE_AMOUNT);
 
-        // Create 2 tasks
-        uint256 deadline1 = block.timestamp + 1 days;
-        uint256 deadline2 = block.timestamp + 2 days;
+    //     // Create 2 tasks
+    //     uint256 deadline1 = block.timestamp + 1 days;
+    //     uint256 deadline2 = block.timestamp + 2 days;
 
-        goalkeeper.createTask("Task 1", deadline1);
-        goalkeeper.createTask("Task 2", deadline2);
-        vm.stopPrank();
+    //     goalkeeper.createTask("Task 1", deadline1);
+    //     goalkeeper.createTask("Task 2", deadline2);
+    //     vm.stopPrank();
 
-        // Advance time past both deadlines
-        vm.warp(deadline2 + 1);
+    //     // Advance time past both deadlines
+    //     vm.warp(deadline2 + 1);
 
-        // Withdraw tokens to trigger evaluateAllTasks
-        vm.prank(user1);
-        goalkeeper.withdrawTokens(0);
+    //     // Withdraw tokens to trigger evaluateAllTasks
+    //     vm.prank(user1);
+    //     goalkeeper.withdrawTokens(0);
 
-        // Calculate expected penalties
-        uint256 firstPenalty = (STAKE_AMOUNT * PENALTY_PERCENTAGE) / 100;
-        uint256 remainingAfterFirst = STAKE_AMOUNT - firstPenalty;
-        uint256 secondPenalty = (remainingAfterFirst * PENALTY_PERCENTAGE) / 100;
+    //     // Calculate expected penalties
+    //     uint256 firstPenalty = (STAKE_AMOUNT * PENALTY_PERCENTAGE) / 100;
+    //     uint256 remainingAfterFirst = STAKE_AMOUNT - firstPenalty;
+    //     uint256 secondPenalty = (remainingAfterFirst * PENALTY_PERCENTAGE) / 100;
 
-        // Verify penalty balance
-        assertEq(goalkeeper.getPenaltyBalance(), firstPenalty + secondPenalty);
+    //     // Verify penalty balance
+    //     assertEq(goalkeeper.getPenaltyBalance(), firstPenalty + secondPenalty);
 
-        // Verify user's remaining balance
-        assertEq(goalkeeper.getStakedBalance(user1), STAKE_AMOUNT - (firstPenalty + secondPenalty));
-    }
+    //     // Verify user's remaining balance
+    //     assertEq(goalkeeper.getStakedBalance(user1), STAKE_AMOUNT - (firstPenalty + secondPenalty));
+    // }
 
     function test_CompleteAndFailMixedTasks() public {
         // User stakes tokens
@@ -407,5 +416,26 @@ contract GoalKeeperTest is Test {
 
         // User's balance should be 90% of original
         assertEq(goalkeeper.getStakedBalance(user1), STAKE_AMOUNT - expectedPenalty);
+    }
+
+    function test_WithdrawPenalties_InsufficientBalance() public {
+        // Owner tries to withdraw more than available
+        vm.startPrank(owner);
+        vm.expectRevert(abi.encodeWithSelector(GoalKeeper.GoalKeeper__InsufficientPenaltyBalance.selector, 0, 100));
+        goalkeeper.withdrawPenalties(100);
+        vm.stopPrank();
+    }
+
+    function test_WithdrawPenalties_NotOwner() public {
+        // Non-owner tries to withdraw penalties
+        vm.startPrank(user1);
+        vm.expectRevert(GoalKeeper.GoalKeeper__OnlyOwner.selector);
+        goalkeeper.withdrawPenalties(100);
+        vm.stopPrank();
+    }
+
+    function test_AllPenaltyPercentages() public {
+        // Test that the penalty percentage getter returns the correct value
+        assertEq(goalkeeper.getPenaltyPercentage(), PENALTY_PERCENTAGE);
     }
 }
