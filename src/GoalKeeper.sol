@@ -12,12 +12,12 @@ contract GoalKeeper {
     error GoalKeeper__InsufficientPenaltyBalance(uint256 available, uint256 required);
 
     struct Task {
-        uint256 id;
         address owner;
-        string description;
+        uint256 id;
         uint256 deadline;
         bool isCompleted;
         bool isPenalized;
+        string description;
     }
 
     event TaskCreated(uint256 indexed taskId, address indexed user, string description, uint256 deadline);
@@ -55,16 +55,6 @@ contract GoalKeeper {
     }
 
     function stakeTokens(uint256 _amount) public {
-        uint256 userBalance = usdt.balanceOf(msg.sender);
-        if (userBalance < _amount) {
-            revert GoalKeeper__InsufficientBalance(userBalance, _amount);
-        }
-
-        uint256 allowance = usdt.allowance(msg.sender, address(this));
-        if (allowance < _amount) {
-            revert GoalKeeper__InsufficientAllowance(allowance, _amount);
-        }
-
         bool succuss = usdt.transferFrom(msg.sender, address(this), _amount);
         if (!succuss) {
             revert GoalKeeper__TransferFailed();
