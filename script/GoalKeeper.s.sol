@@ -22,6 +22,8 @@ contract GoalKeeperScript is Script {
             mockUsdt = new MockUSDT();
         }
         goalKeeper = new GoalKeeper(address(mockUsdt));
+        console.log(address(mockUsdt));
+        console.log(address(goalKeeper));
 
         vm.stopBroadcast();
     }
