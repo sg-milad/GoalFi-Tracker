@@ -7,7 +7,7 @@ import {MockUSDT} from "./../test/mock/MockUSDT.sol";
 
 contract GoalKeeperScript is Script {
     GoalKeeper public goalKeeper;
-    // uint256 public constant ETH_SEPOLIA_CHAIN_ID = 11155111;
+    uint256 public constant ETH_SEPOLIA_CHAIN_ID = 11155111;
     // uint256 public constant ZKSYNC_SEPOLIA_CHAIN_ID = 300;
 
     uint256 public constant LOCAL_CHAIN_ID = 31337;
@@ -20,6 +20,8 @@ contract GoalKeeperScript is Script {
 
         if (block.chainid == LOCAL_CHAIN_ID) {
             mockUsdt = new MockUSDT();
+        } else if (block.chainid == ETH_SEPOLIA_CHAIN_ID) {
+            mockUsdt = MockUSDT(0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0);
         }
         goalKeeper = new GoalKeeper(address(mockUsdt));
         console.log(address(mockUsdt));
