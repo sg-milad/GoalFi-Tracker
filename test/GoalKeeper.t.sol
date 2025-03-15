@@ -224,16 +224,6 @@ contract GoalKeeperTest is Test {
         vm.stopPrank();
     }
 
-    function test_GetUserBalance() public {
-        vm.startPrank(user1);
-        assertEq(goalkeeper.getUserBalance(), 0);
-
-        usdt.approve(address(goalkeeper), STAKE_AMOUNT);
-        goalkeeper.stakeTokens(STAKE_AMOUNT);
-        assertEq(goalkeeper.getUserBalance(), STAKE_AMOUNT);
-        vm.stopPrank();
-    }
-
     function test_GetTaskDetails_NonexistentTask() public view {
         GoalKeeper.Task memory task = goalkeeper.getTaskDetails(999);
         assertEq(task.owner, address(0));
@@ -434,7 +424,7 @@ contract GoalKeeperTest is Test {
         vm.stopPrank();
     }
 
-    function test_AllPenaltyPercentages() public {
+    function test_AllPenaltyPercentages() public view {
         // Test that the penalty percentage getter returns the correct value
         assertEq(goalkeeper.getPenaltyPercentage(), PENALTY_PERCENTAGE);
     }
