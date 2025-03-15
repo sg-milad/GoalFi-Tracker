@@ -230,14 +230,6 @@ contract GoalKeeper {
     // View functions
 
     /**
-     * @notice Get the current staked balance of the caller
-     * @return Current staked balance
-     */
-    function getUserBalance() external view returns (uint256) {
-        return s_stakedTokens[msg.sender];
-    }
-
-    /**
      * @notice Get the staked balance of any user
      * @param _user Address of the user
      * @return Staked balance of the user
